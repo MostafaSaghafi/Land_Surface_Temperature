@@ -1,0 +1,37 @@
+// Import the Landsat 8 Surface Reflectance Tier 2 image collection  
+var LC8 = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')  
+  .filterBounds(geometry)  
+  .filterDate('2013-01-01', '2023-12-31');  
+
+// Function to calculate LST from Landsat 8 Level-2 data  
+function calculateLST(image) {  
+  // Extract the thermal band (Band 10)  
+  var thermalBand = image.select('ST_B10');  
+
+  // Calculate brightness temperature in Kelvin  
+  var brightnessTemp = thermalBand.multiply(0.00341802).add(149.0).subtract(273.15); // Convert to Celsius  
+
+  // Calculate LST using emissivity  
+  var emissivity = 0.986; // Typical value for most land covers  
+  var lst = brightnessTemp.divide(emissivity);  
+
+  return image.addBands(lst.rename('LST'));  
+}  
+
+// Apply the LST calculation to the image collection  
+var lstCollection = LC8.map(calculateLST);  
+
+// Generate time series data
+var landsatchart1 = ui.Chart.image.series({
+  imageCollection: lstCollection.select(['LST']),
+  region: geometry,
+  reducer: ee.Reducer.max(),
+  scale: 30,
+}).setChartType('LineChart')
+  .setOptions({
+    title: 'Time Series Land Surface Temperature (2013-2023)',
+    hAxis: {title: 'Date'},
+    vAxis: {title: 'Temperature (K)'},
+    series: {LST: {color: 'orange'}}
+});
+print(landsatchart1);
